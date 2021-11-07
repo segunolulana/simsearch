@@ -5,32 +5,59 @@ specified in a text file 'input.txt'.
 
 It also provides a simple user interface for reviewing the results.
 
+E.g python runSearchByText.py -o "~/sim_corpus/mygtd_2020-11-06/"
+
 @author: Chris McCormick
 """
 
+import logging
+import argparse
 from simsearch import SimSearch
+import os
+
+parser = argparse.ArgumentParser(description="Parses Text")
+parser.add_argument("-d", "--debug", action="store_true", help="Debug mode")
+parser.add_argument("-o", "--output_dir", help="Glob pattern for output dir")
+parser.add_argument("-t", "--text")
+args = parser.parse_args()
+
+if args.debug:
+    logging.basicConfig(
+        format="%(asctime)s : %(levelname)s : %(message)s", level=logging.DEBUG
+    )
+else:
+    logging.basicConfig(
+        format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO
+    )
 
 ###############################################################################
 # Load the pre-built corpus.
 ###############################################################################
 print('Loading the saved SimSearch and corpus...')
-(ksearch, ssearch) = SimSearch.load(save_dir='./mhc_corpus/')
+output_dir = "./mhc_corpus/"
+if args.output_dir:
+    output_dir = os.path.expanduser(args.output_dir)
+(ksearch, ssearch) = SimSearch.load(save_dir=output_dir)
 
-###############################################################################
-# Read `input.txt` as input text for search.
-###############################################################################
+# ###############################################################################
+# # Read `input.txt` as input text for search.
+# ###############################################################################
 
-# Load 'input.txt' as the input to the search.
-input_vec = ksearch.getTfidfForFile('input.txt')
+# # Load 'input.txt' as the input to the search.
+# input_vec = ksearch.getTfidfForFile(os.path.expanduser('~/GittedUtilities/simsearch/input.txt'))
+
+if args.text:
+    input_vec = ksearch.getTfidfForText(args.text)
 
 # Number of results to go through.
 topn = 10
+# topn = 20
 
 ###############################################################################
 # Perform the search
 ###############################################################################
 
-print 'Searching by contents of input.txt...'
+print('Searching by contents of input.txt...')
 
 # Perform the search.
 results = ssearch.findSimilarToVector(input_vec, topn=topn)
@@ -52,15 +79,17 @@ for i in range(0, topn):
     # Interpret the match.
     ssearch.interpretMatch(input_vec, result_vec, min_pos=0)
 
-    # Wait for user input.
-    command = raw_input("[N]ext result  [F]ull text  [Q]uit\n: ").lower()
-        
-    # q -> Quit.
-    if (command == 'q'):
-        break
-    # f -> Display full doc source.
-    elif (command == 'f'):
-        ksearch.printDocSourcePretty(results[i][0], max_lines=100)
-        raw_input('Press enter to continue...')
-        
+    # # Wait for user input.
+    # command = input("[N]ext result  [F]ull text  [Q]uit\n: ").lower()
+
+    # # q -> Quit.
+    # if (command == 'q'):
+    #     break
+    # # f -> Display full doc source.
+    # elif (command == 'f'):
+    #     ksearch.printDocSourcePretty(results[i][0], max_lines=100)
+    #     input('Press enter to continue...')
+
+    ksearch.printDocSource(results[i][0], max_lines=100)
+
 
