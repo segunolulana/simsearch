@@ -14,6 +14,7 @@ import logging
 import os
 
 from sklearn.neighbors import NearestNeighbors
+from hdbscan import HDBSCAN
 
 
 def findEps(ssearch):
@@ -65,6 +66,9 @@ def findEps(ssearch):
 
         print('  %.2f%% < %.2f' % (prcnt, bins[i + 1]))
 
+    # The optimal value for epsilon will be found at the point of maximum curvature
+    plt.show()
+
 
 def findMinPts(ssearch, eps):
     """
@@ -90,14 +94,14 @@ def findMinPts(ssearch, eps):
     t0 = time.time()
 
     # Create a list to hold the number of neighbors for each point.
-    numNeighbors = [0]*len(DD)
+    numNeighbors = [0] * len(DD)
 
     for i in range(0, len(DD)):
         dists = DD[i]
 
         count = 0
         for j in range(0, len(DD)):
-            if (dists[j] < eps):
+            if dists[j] < eps:
                 count += 1
 
         numNeighbors[i] = count
@@ -123,17 +127,22 @@ def findMinPts(ssearch, eps):
         binsStr += '  %0.2f' % b
 
     print(binsStr)
+    plt.show()
 
 
-def runClustering(ssearch, eps, min_samples):
+def runClustering(args, ssearch, eps, min_samples):
     """
     Run DBSCAN with the determined eps and MinPts values.
     """
     print('Clustering all documents with DBSCAN, eps=%0.2f min_samples=%d' % (eps, min_samples))
 
-    # Initialize DBSCAN with parameters.
-    # I forgot to use cosine at first!
-    db = DBSCAN(eps=eps, min_samples=min_samples, metric='cosine', algorithm='brute')
+    if args.hdbscan:
+        # eps not important here but min_samples could be a little important
+        db = HDBSCAN(min_samples=min_samples, min_cluster_size=4)
+    else:
+        # Initialize DBSCAN with parameters.
+        # I forgot to use cosine at first!
+        db = DBSCAN(eps=eps, min_samples=min_samples, metric='cosine', algorithm='brute')
 
     # Time this step.
     t0 = time.time()
@@ -142,7 +151,7 @@ def runClustering(ssearch, eps, min_samples):
     db.fit(ssearch.index.index)
 
     # Calculate the elapsed time (in seconds)
-    elapsed = (time.time() - t0)
+    elapsed = time.time() - t0
     print("  done in %.3fsec" % elapsed)
 
     # Get the set of unique IDs.
@@ -154,20 +163,22 @@ def runClustering(ssearch, eps, min_samples):
     # For each of the clusters...
     for cluster_id in cluster_ids:
 
-            # Get the list of all doc IDs belonging to this cluster.
-            cluster_doc_ids = []
-            for doc_id in range(0, len(db.labels_)):
-                if db.labels_[doc_id] == cluster_id:
-                    cluster_doc_ids.append(doc_id)
+        # Get the list of all doc IDs belonging to this cluster.
+        cluster_doc_ids = []
+        for doc_id in range(0, len(db.labels_)):
+            if db.labels_[doc_id] == cluster_id:
+                cluster_doc_ids.append(doc_id)
 
-            # Get the top words in this cluster
+        # Get the top words in this cluster
+        if cluster_id != -1:
             top_words = ssearch.getTopWordsInCluster(cluster_doc_ids)
+        else:
+            top_words = ssearch.getTopWordsInCluster(cluster_doc_ids, topn=30)
 
-
-            print('  Cluster %d: (%d docs) %s' % (cluster_id, len(cluster_doc_ids), " ".join(top_words)))
-            for cluster_doc_id in cluster_doc_ids:
-                ssearch.ksearch.printDocSource(cluster_doc_id)
-            print("-" * 20)
+        print('  Cluster %d: (%d docs) %s' % (cluster_id, len(cluster_doc_ids), " ".join(top_words)))
+        for cluster_doc_id in cluster_doc_ids:
+            ssearch.ksearch.printDocSource(cluster_doc_id)
+        print("-" * 20)
 
 
 def main():
@@ -177,18 +188,20 @@ def main():
 
     parser = argparse.ArgumentParser(description="Parses Text")
     parser.add_argument("-d", "--debug", action="store_true", help="Debug mode")
+    parser.add_argument("--fe", "--find_eps", dest="find_eps", action="store_true", help="Find eps")
+    parser.add_argument("--fmp", "--find_min_pts", dest="find_min_pts", action="store_true", help="Find min_pts")
+    parser.add_argument("-e", "--eps", dest="eps", help="Use eps")
+    parser.add_argument("-m", "--min_pts", dest="min_pts", help="Use min_pts")
+    parser.add_argument("-c", "--cluster", action="store_true", help="Find clusters")
+    parser.add_argument("--hd", "--hdbscan", dest="hdbscan", action="store_true", help="Use hdbscan")
     parser.add_argument("-i", "--input_dir", help="Glob pattern for input dir")
     parser.add_argument("-o", "--output_dir", help="Glob pattern for output dir")
     args = parser.parse_args()
 
     if args.debug:
-        logging.basicConfig(
-            format="%(asctime)s : %(levelname)s : %(message)s", level=logging.DEBUG
-        )
+        logging.basicConfig(format="%(asctime)s : %(levelname)s : %(message)s", level=logging.DEBUG)
     else:
-        logging.basicConfig(
-            format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO
-        )
+        logging.basicConfig(format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO)
     ###########################################################################
     # Load the corpus
     ###########################################################################
@@ -203,17 +216,25 @@ def main():
     print('    %d documents.' % len(ssearch.index.index))
 
     # Step 1: Run a technique to find a good 'eps' value.
-    #findEps(ssearch)
-    #eps = 0.5
+    if args.find_eps:
+        findEps(ssearch)
+    # eps = 0.5
     eps = 0.44
+    if args.eps:
+        eps = float(args.eps)
 
     # Step 2: Run a technique to find a good 'MinPts' value.
     # TODO - This took ~17 min. on my desktop!
-    #findMinPts(ssearch, eps)
-    #min_samples = 8
+    if args.find_min_pts:
+        findMinPts(ssearch, eps)
+    # min_samples = 8
     min_samples = 4
+    if args.min_pts:
+        min_samples = int(args.min_pts)
 
     # Step 3: Run DBSCAN
-    runClustering(ssearch, eps, min_samples)
+    if args.cluster:
+        runClustering(args, ssearch, eps, min_samples)
+
 
 main()

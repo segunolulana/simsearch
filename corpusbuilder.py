@@ -16,6 +16,7 @@ from os import listdir, makedirs
 from os.path import isfile, join, exists
 from binaryornot.check import is_binary
 import os
+from icecream import ic
 
 
 class CorpusBuilder(object):
@@ -204,9 +205,7 @@ class CorpusBuilder(object):
 
         return line
 
-    def addDocument(
-        self, title, lines, tags=[], filename=None, doc_start=None, doc_end=None
-    ):
+    def addDocument(self, title, lines, tags=[], filename=None, doc_start=None, doc_end=None):
         """
         Add a document (or piece of text) to this corpus. The text is
         represented by a list of strings. It's ok if the strings contain
@@ -362,6 +361,9 @@ class CorpusBuilder(object):
 
                 # Run reg ex filters to remove some tokens.
                 line = self.applyRegExFilters(line)
+                line = self.remove_org_time(line)
+                line = self.remove_unneeded_lines_1(line)
+                # ic(line)
 
                 # Add the line to the doc.
                 doc.append(line)
@@ -369,13 +371,35 @@ class CorpusBuilder(object):
         # End of file reached.
         doc_end = lineNum - 1 + 1
         self.addDocument(
-            doc_title,
-            doc,
-            doc_tags,
-            filename=filepath,
-            doc_start=doc_start,
-            doc_end=doc_end,
+            doc_title, doc, doc_tags, filename=filepath, doc_start=doc_start, doc_end=doc_end,
         )
+
+    @staticmethod
+    def remove_org_time(doc):
+        state_str = r"( *\- State.*)"  # - State "DONE"       from "TODO"
+        org_with_date_str = r"(:*[a-zA-Z]+:.*)"  # SCHEDULED: <2020-06-17 Wed .+28d>
+        time_str = r"(([01]\d|2[0-3]):([0-5]\d)|24:00)"
+        date_str = r"\d{4}-\d{2}-\d{2} "
+        time_re_1 = re.compile(
+            r"^" + state_str + r"|" + org_with_date_str + date_str + ".*", re.MULTILINE
+        )  # Might be scheduled to dates without time
+        doc = time_re_1.sub("", doc)
+        brackets_or_ang = re.compile(".*" + time_str + r">|\]\n", re.MULTILINE)
+        doc = brackets_or_ang.sub("", doc)
+        starts_with_date = re.compile("^ *" + date_str + time_str, re.MULTILINE)
+        doc = starts_with_date.sub("", doc)
+        return doc
+
+    @staticmethod
+    def remove_unneeded_lines_1(text):
+        remove_lines_with_phrases = ["www.google.com", "DONE", "HOLD", "SOMEDAY", "CANCELLED"]
+        ocr_remove_lines_with_phrases = ["UTF-8 LF", "File Edit", "INSERT MODE"]
+        remove_lines_with_phrases.extend(ocr_remove_lines_with_phrases)
+        file_list_phrases = [r"\d+\.\d+\.\d+", r"\.srt"]
+        remove_lines_with_phrases.extend(file_list_phrases)
+        pattern = re.compile(r"^.*(" + r"|".join(remove_lines_with_phrases) + r")\b.*$", re.IGNORECASE | re.MULTILINE,)
+        text = pattern.sub("", text)
+        return text
 
     def addDirectory(self, file_path="mhc/**"):
         """
@@ -385,13 +409,7 @@ class CorpusBuilder(object):
         for f in glob.glob(os.path.expanduser(file_path), recursive=True):
             try:
                 f_name = os.path.basename(f)
-                if (
-                    not isfile(f)
-                    or is_binary(f)
-                    or f[-4:] == ".zip"
-                    or f_name in excludes
-                    or "." not in f_name
-                ):
+                if not isfile(f) or is_binary(f) or f[-4:] == ".zip" or f_name in excludes or "." not in f_name:
                     continue
                 print("  Parsing file:", f)
                 self.addFile(filepath=(f))
@@ -407,10 +425,7 @@ class CorpusBuilder(object):
             4. Convert the bag-of-words vectors to tf-idf.
         """
         # Remove words that only appear once.
-        self.documents = [
-            [token for token in doc if self.frequency[token] > 1]
-            for doc in self.documents
-        ]
+        self.documents = [[token for token in doc if self.frequency[token] > 1] for doc in self.documents]
 
         # Build a dictionary from the text.
         self.dictionary = corpora.Dictionary(self.documents)

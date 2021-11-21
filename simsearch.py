@@ -5,11 +5,12 @@ Created on Fri Oct 14 21:00:58 2016
 @author: Chris
 """
 
-from gensim.models import LsiModel
+from gensim.models import LsiModel, LdaModel
 from gensim import similarities
 from keysearch import KeySearch
 import numpy as np
 import pysnooper
+
 
 class SimSearch(object):
     """
@@ -34,7 +35,6 @@ class SimSearch(object):
         """
         self.ksearch = key_search
 
-
     def trainLSI(self, num_topics=100):
         """
         Train the Latent Semantic Indexing model.
@@ -43,13 +43,14 @@ class SimSearch(object):
         # Train LSA
 
         # Look-up the number of features in the tfidf model.
-        #self.num_tfidf_features = max(self.corpus_tfidf.dfs) + 1
+        # self.num_tfidf_features = max(self.corpus_tfidf.dfs) + 1
 
-        self.lsi = LsiModel(self.ksearch.corpus_tfidf, num_topics=self.num_topics, id2word=self.ksearch.dictionary)
+        # 2021-11-21 Testing LDA
+        # self.lsi = LsiModel(self.ksearch.corpus_tfidf, num_topics=self.num_topics, id2word=self.ksearch.dictionary)
+        self.lsi = LdaModel(self.ksearch.corpus_tfidf, num_topics=50, id2word=self.ksearch.dictionary)
 
         # Transform corpus to LSI space and index it
         self.index = similarities.MatrixSimilarity(self.lsi[self.ksearch.corpus_tfidf], num_features=num_topics)
-
 
     def findSimilarToVector(self, input_tfidf, topn=10, in_corpus=False):
         """
@@ -72,7 +73,7 @@ class SimSearch(object):
         # this will just be the document itself.
         if in_corpus:
             # Select just the top N results, skipping the first one.
-            results = sims[1:1 + topn]
+            results = sims[1 : 1 + topn]
         else:
             results = sims[0:topn]
 
@@ -118,7 +119,6 @@ class SimSearch(object):
                 break
 
         return results
-
 
     def findSimilarToText(self, text, topn=10):
         """
@@ -173,7 +173,6 @@ class SimSearch(object):
         # Pass the call down, specifying that the input is a part of the
         # corpus.
         return self.findSimilarToVector(tfidf_vec, topn=topn, in_corpus=True)
-
 
     def findMoreOfTag(self, tag, topn=10):
         """
@@ -244,7 +243,6 @@ class SimSearch(object):
 
         return vec
 
-
     def getSimilarityByWord(self, vec1_tfidf, vec2_tfidf):
         """
         Calculates the individual contribution of each word in document 1 to
@@ -258,7 +256,7 @@ class SimSearch(object):
         vec1_lsi = self.sparseToDense(self.lsi[vec1_tfidf], self.lsi.num_topics)
         vec2_lsi = self.sparseToDense(self.lsi[vec2_tfidf], self.lsi.num_topics)
         vec1_tfidf = self.sparseToDense(vec1_tfidf, self.ksearch.getVocabSize())
-        #vec2_tfidf = self.sparseToDense(self.ksearch.corpus_tfidf[id2], self.ksearch.getVocabSize())
+        # vec2_tfidf = self.sparseToDense(self.ksearch.corpus_tfidf[id2], self.ksearch.getVocabSize())
 
         # Calculate the norms of the two LSI vectors.
         norms = np.linalg.norm(vec1_lsi) * np.linalg.norm(vec2_lsi)
@@ -299,11 +297,11 @@ class SimSearch(object):
             neg_word = self.ksearch.dictionary[neg_word_id]
 
             # If neither words pass the thresholds, break.
-            if ((pos_word_val <= min_pos) and (neg_word_val >= max_neg)):
+            if (pos_word_val <= min_pos) and (neg_word_val >= max_neg):
                 break
 
             # Only display the positive word if the value passes the threshold.
-            if (pos_word_val > min_pos):
+            if pos_word_val > min_pos:
                 tableStr += '  %15s  +%.3f' % (pos_word, pos_word_val)
             # Otherwise add empty space.
             else:
@@ -311,7 +309,7 @@ class SimSearch(object):
                 tableStr += '                         '
 
             # Only display the negative word if the value passes the threshold.
-            if (neg_word_val < max_neg):
+            if neg_word_val < max_neg:
                 tableStr += '    %15s  %.3f\n' % (neg_word, neg_word_val)
             # Otherwise just end the line.
             else:
@@ -353,7 +351,6 @@ class SimSearch(object):
         print('Words in doc 2 which contribute most to similarity:')
         self.printWordSims(word_sims, topn, min_pos, max_neg)
 
-
     def getTopWordsInCluster(self, doc_ids, topn=10):
         """
         Returns the most significant words in a specified group of documents.
@@ -384,7 +381,6 @@ class SimSearch(object):
             top_words.append(self.ksearch.dictionary[word_id])
 
         return top_words
-
 
     def printResultsByTitle(self, results):
         """
@@ -434,7 +430,6 @@ class SimSearch(object):
                 print('\n')
                 print('--------------------------------------------------------------------------------')
                 print('\n')
-
 
     def save(self, save_dir='./'):
         """
