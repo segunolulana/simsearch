@@ -22,13 +22,9 @@ parser.add_argument("-t", "--text")
 args = parser.parse_args()
 
 if args.debug:
-    logging.basicConfig(
-        format="%(asctime)s : %(levelname)s : %(message)s", level=logging.DEBUG
-    )
+    logging.basicConfig(format="%(asctime)s : %(levelname)s : %(message)s", level=logging.DEBUG)
 else:
-    logging.basicConfig(
-        format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO
-    )
+    logging.basicConfig(format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO)
 
 ###############################################################################
 # Load the pre-built corpus.
@@ -66,7 +62,8 @@ results = ssearch.findSimilarToVector(input_vec, topn=topn)
 # Display results.
 ###############################################################################
 
-for i in range(0, topn):
+# for i in range(0, topn):
+for i in range(topn - 1, -1, -1):
 
     # Show the text for the result.
     ssearch.printResultsBySourceText([results[i]], max_lines=8)
@@ -91,5 +88,4 @@ for i in range(0, topn):
     #     input('Press enter to continue...')
 
     ksearch.printDocSource(results[i][0], max_lines=100)
-
 

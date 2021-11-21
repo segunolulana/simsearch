@@ -13,10 +13,13 @@ from gensim.models import TfidfModel
 import pprint
 import pysnooper
 
+from general import bc
+
 
 # I lazily made this a global constant so that I wouldn't have to include
 # it in the save and load features.
-enc_format ='utf-8'
+enc_format = 'utf-8'
+
 
 class KeySearch(object):
     """
@@ -48,8 +51,8 @@ class KeySearch(object):
     form.
 
     """
-    def __init__(self, dictionary, tfidf_model, corpus_tfidf, titles,
-                  tagsToDocs, docsToTags, files, doc_line_nums):
+
+    def __init__(self, dictionary, tfidf_model, corpus_tfidf, titles, tagsToDocs, docsToTags, files, doc_line_nums):
         """
         KeySearch requires a completed gensim corpus, along with some
         additional metadata
@@ -213,7 +216,6 @@ class KeySearch(object):
 
         return results
 
-
     def printTopNWords(self, topn=10):
         """
         Print the 'topn' most frequent words in the corpus.
@@ -228,6 +230,7 @@ class KeySearch(object):
 
         # Sort the list by the 'value' of the tuple (incidence count)
         from operator import itemgetter
+
         word_counts = sorted(word_counts, key=itemgetter(1))
 
         # Print the most common words.
@@ -317,7 +320,7 @@ class KeySearch(object):
         # Convert the list of strings to a single string.
         lines = '. '.join([line.strip() for line in lines if line.strip() != ""])
 
-        print(lines)
+        print(f"{bc.OKGREEN}{bc.BOLD}{lines}{bc.ENDC}")
 
     # @pysnooper.snoop()
     def printDocSourcePretty(self, doc_id, max_lines=8, indent='    '):
@@ -401,8 +404,6 @@ class KeySearch(object):
         files = pickle.load(open(save_dir + 'files.pickle', 'rb'))
         doc_line_nums = pickle.load(open(save_dir + 'doc_line_nums.pickle', 'rb'))
 
-        ksearch = KeySearch(dictionary, tfidf_model,
-                            corpus_tfidf, titles, tagsToDocs,
-                            docsToTags, files, doc_line_nums)
+        ksearch = KeySearch(dictionary, tfidf_model, corpus_tfidf, titles, tagsToDocs, docsToTags, files, doc_line_nums)
 
         return ksearch

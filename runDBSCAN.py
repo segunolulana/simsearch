@@ -137,7 +137,7 @@ def runClustering(args, ssearch, eps, min_samples):
     print('Clustering all documents with DBSCAN, eps=%0.2f min_samples=%d' % (eps, min_samples))
 
     if args.hdbscan:
-        # eps not important here but min_samples could be a little important
+        # eps not important here but min_samples could be a somewhat important
         db = HDBSCAN(min_samples=min_samples, min_cluster_size=4)
     else:
         # Initialize DBSCAN with parameters.
